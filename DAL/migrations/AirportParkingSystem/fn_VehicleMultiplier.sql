@@ -1,0 +1,19 @@
+CREATE OR ALTER FUNCTION [AirportParkingSystem].[fn_VehicleMultiplier]
+(
+  @VehicleType NVARCHAR(50)
+)
+RETURNS DECIMAL(18,2)
+AS
+BEGIN
+  DECLARE @t NVARCHAR(50) = UPPER(@VehicleType);
+  RETURN
+    CASE @t
+      WHEN N'MOTOSIKLET' THEN 0.8
+      WHEN N'MOTORCYCLE' THEN 0.8
+      WHEN N'OTOMOBIL' THEN 1.0
+      WHEN N'AUTOMOBILE' THEN 1.0
+      WHEN N'SUV' THEN 1.3
+      WHEN N'KAMYONET' THEN 1.5
+      ELSE 1.0
+    END;
+END
