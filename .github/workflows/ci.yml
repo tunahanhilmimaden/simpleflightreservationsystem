@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  bal-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: BAL
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: BAL/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
+  pal-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: PAL
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: PAL/package-lock.json
+      - run: npm ci
+      - run: npm run build
+
