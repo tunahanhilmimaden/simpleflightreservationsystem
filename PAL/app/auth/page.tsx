@@ -28,7 +28,7 @@ export default function AuthPage() {
         .then(async r => {
           const data = await r.json()
           if (data && !data.error) {
-            const u = { name: data.Name ?? name.trim(), email: data.Email ?? email.trim(), password: '', phone: data.Phone ?? '' }
+            const u = { id: data.UserID ?? data.userId ?? data.Id ?? 0, name: data.Name ?? name.trim(), email: data.Email ?? email.trim(), password: '', phone: data.Phone ?? '' }
             setRemoteUser(u)
             try {
               sessionStorage.setItem('user', JSON.stringify(u))

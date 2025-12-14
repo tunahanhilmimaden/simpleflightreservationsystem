@@ -7,6 +7,7 @@ export type BookingState = {
   registeredUsers: User[]
   isLoggedIn: boolean
   currentUser?: User
+  userId?: number
   selectedOrigin?: string
   selectedDestination?: string
   selectedDate: Date
@@ -28,6 +29,7 @@ type BookingContextType = BookingState & {
   passport: string
   email: string
   phone: string
+  userId: number
   parkingDays: number
   totalParkingPrice: number
   totalPrice: number
@@ -56,6 +58,7 @@ export function BookingProviderRoot({ children }: { children: React.ReactNode })
   const [registeredUsers, setRegisteredUsers] = useState<User[]>(defaultUsers)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [currentUser, setCurrentUser] = useState<User | undefined>(undefined)
+  const [userId, setUserId] = useState<number>(0)
   const [selectedOrigin, setSelectedOrigin] = useState<string | undefined>(undefined)
   const [selectedDestination, setSelectedDestination] = useState<string | undefined>(undefined)
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
@@ -119,6 +122,7 @@ export function BookingProviderRoot({ children }: { children: React.ReactNode })
   function logout() {
     setIsLoggedIn(false)
     setCurrentUser(undefined)
+    setUserId(0)
     setName('')
     setEmail('')
     setPhone('')
@@ -127,6 +131,7 @@ export function BookingProviderRoot({ children }: { children: React.ReactNode })
   function setRemoteUser(u: User) {
     setCurrentUser(u)
     setIsLoggedIn(true)
+    setUserId((u as any).id ? Number((u as any).id) : 0)
     setName(u.name)
     setEmail(u.email)
     setPhone(u.phone ?? '')
@@ -233,6 +238,7 @@ export function BookingProviderRoot({ children }: { children: React.ReactNode })
     passport,
     email,
     phone,
+    userId,
     parkingDays,
     totalParkingPrice,
     totalPrice,

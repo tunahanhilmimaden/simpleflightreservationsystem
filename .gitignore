@@ -24,12 +24,7 @@ BAL/dist/
 BAL/node_modules/
 
 # Flutter app
-flight_reservation_system/.dart_tool/
-flight_reservation_system/build/
-flight_reservation_system/ios/Pods/
-flight_reservation_system/android/.gradle/
-flight_reservation_system/android/app/build/
-
+flight_reservation_system/
 # OS/IDE
 .DS_Store
 .idea/

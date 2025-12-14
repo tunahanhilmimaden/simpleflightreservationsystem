@@ -5,6 +5,7 @@ import { FlightsController } from './flights.controller'
 import { ParkingController } from './parking.controller'
 import { SeatsController } from './seats.controller'
 import { BookingController } from './booking.controller'
+import { ActivityController } from './activity.controller'
 
 @Module({
   controllers: [
@@ -13,7 +14,8 @@ import { BookingController } from './booking.controller'
     FlightsController,
     ParkingController,
     SeatsController,
-    BookingController
+    BookingController,
+    ActivityController
   ]
 })
 export class AppModule {}

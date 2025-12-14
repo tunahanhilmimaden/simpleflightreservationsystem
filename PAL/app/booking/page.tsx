@@ -1,12 +1,13 @@
 'use client'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useBooking } from '../../lib/bookingStore'
 import ParkingPanel from '../../components/ParkingPanel'
 import CreditCardForm from '../../components/CreditCardForm'
 import { useRouter } from 'next/navigation'
+import { logActivity } from '../../lib/activity'
 
 export default function BookingPage() {
-  const { selectedFlight, selectedSeatNumbers, passengers, currentUser, vehicleType, addParking, payAtLocation, totalParkingPrice, selectFlight, setSeatSelections } = useBooking() as any
+  const { selectedFlight, selectedSeatNumbers, passengers, currentUser, userId, vehicleType, addParking, payAtLocation, totalParkingPrice, selectFlight, setSeatSelections } = useBooking() as any
   const [valid, setValid] = useState(false)
   const [rows, setRows] = useState<any[]>([])
   const [kvkkOk, setKvkkOk] = useState(false)
@@ -57,6 +58,74 @@ export default function BookingPage() {
       .then(arr => setRows(Array.isArray(arr) ? arr : []))
       .catch(() => setRows([]))
   }, [selectedFlight, selectedSeatNumbers])
+  const reservationGuard = useRef(false)
+  useEffect(() => {
+    if (!selectedFlight || rows.length === 0 || reservationGuard.current) return
+    reservationGuard.current = true
+    const seatSum = rows.reduce((sum, r) => sum + (typeof r.SeatPrice === 'number' ? r.SeatPrice : 0), 0)
+    const totalAmount = seatSum + 450 + (addParking && !payAtLocation ? totalParkingPrice : 0)
+    try {
+      let uid = userId ? Number(userId) : 0
+      if (!uid) {
+        const raw = sessionStorage.getItem('user')
+        if (raw) {
+          const u = JSON.parse(raw)
+          uid = u?.id ? Number(u.id) : (u?.UserID ? Number(u.UserID) : 0)
+        }
+      }
+      const payload = {
+        flightId: Number(selectedFlight.id),
+        userId: uid,
+        totalAmount: Number(totalAmount)
+      }
+      console.log('reservation_create payload', payload)
+      try { logActivity('reservation_create_client', 'booking page effect', payload, uid || undefined) } catch {}
+      fetch('http://localhost:4000/api/booking/reservation_create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(r => r.json())
+        .then(obj => {
+          const rid = obj?.ReservationID
+          if (!rid) return
+          const psg = (passengers || []).map((p: any) => {
+            const age = (() => {
+              try {
+                const d = new Date(p.dob)
+                const ref = new Date(selectedFlight.departureTime)
+                let a = ref.getFullYear() - d.getFullYear()
+                const m = ref.getMonth() - d.getMonth()
+                if (m < 0 || (m === 0 && ref.getDate() < d.getDate())) a--
+                return a
+              } catch { return null }
+            })()
+            return {
+              first: p.first || '',
+              last: p.last || '',
+              dob: p.dob || null,
+              passportNo: p.passportNo || null,
+              age: age,
+              gender: p.gender || null,
+              nationality: p.nationality || 'Türkiye'
+            }
+          })
+          console.log('passengers_simple payload', { reservationId: Number(rid), passengers: psg })
+          try { logActivity('passengers_simple_client', 'booking page effect', { reservationId: Number(rid), passengers: psg }, uid || undefined) } catch {}
+          fetch('http://localhost:4000/api/booking/passengers_simple', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reservationId: Number(rid), passengers: psg })
+          }).catch(() => {})
+        })
+        .catch(() => {})
+    } catch {
+      // ignore
+    }
+  }, [selectedFlight, rows, addParking, payAtLocation, totalParkingPrice])
+  const taxes = 450
+  const seatTotal = useMemo(() => rows.reduce((sum, r) => sum + (typeof r.SeatPrice === 'number' ? r.SeatPrice : 0), 0), [rows])
+  const grandTotal = useMemo(() => seatTotal + taxes + (addParking && !payAtLocation ? totalParkingPrice : 0), [seatTotal, taxes, addParking, payAtLocation, totalParkingPrice])
   if (!selectedFlight || !selectedSeatNumbers || selectedSeatNumbers.length === 0) {
     return (
       <div className="container" style={{ paddingTop: 40 }}>
@@ -64,9 +133,6 @@ export default function BookingPage() {
       </div>
     )
   }
-  const taxes = 450
-  const seatTotal = useMemo(() => rows.reduce((sum, r) => sum + (typeof r.SeatPrice === 'number' ? r.SeatPrice : 0), 0), [rows])
-  const grandTotal = useMemo(() => seatTotal + taxes + (addParking && !payAtLocation ? totalParkingPrice : 0), [seatTotal, taxes, addParking, payAtLocation, totalParkingPrice])
   return (
     <div className="container" style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: 30, paddingTop: 30 }}>
       <div>
@@ -164,21 +230,98 @@ export default function BookingPage() {
             style={{ width: '100%', height: 55, borderRadius: 15, background: valid && kvkkOk ? '#FF9F1C' : '#bbb', color: valid && kvkkOk ? '#000' : '#666' }}
             onClick={() => {
               if (valid && kvkkOk) {
-                const payload = {
-                  flightId: Number(selectedFlight.id),
-                  passengers: (passengers || []).map((p: any, i: number) => ({
-                    first: p.first,
-                    last: p.last,
-                    seatNumber: selectedSeatNumbers[i] || ''
-                  }))
+                try {
+                  let uid = userId ? Number(userId) : 0
+                  if (!uid) {
+                    const raw = sessionStorage.getItem('user')
+                    if (raw) {
+                      const u = JSON.parse(raw)
+                      uid = u?.id ? Number(u.id) : (u?.UserID ? Number(u.UserID) : 0)
+                    }
+                  }
+                  const reservePayload = {
+                    flightId: Number(selectedFlight.id),
+                    userId: uid,
+                    totalAmount: Number(grandTotal)
+                  }
+                  fetch('http://localhost:4000/api/booking/reservation_create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(reservePayload)
+                  })
+                    .then(r => r.json())
+                    .then(obj => {
+                      const rid = obj?.ReservationID
+                      if (!rid) {
+                        router.push('/boarding')
+                        return
+                      }
+                      const psg = (passengers || []).map((p: any) => {
+                        const age = (() => {
+                          try {
+                            const d = new Date(p.dob)
+                            const ref = new Date(selectedFlight.departureTime)
+                            let a = ref.getFullYear() - d.getFullYear()
+                            const m = ref.getMonth() - d.getMonth()
+                            if (m < 0 || (m === 0 && ref.getDate() < d.getDate())) a--
+                            return a
+                          } catch { return null }
+                        })()
+                        return {
+                          first: p.first || '',
+                          last: p.last || '',
+                          passportNo: p.passportNo || null,
+                          age,
+                          gender: p.gender || null,
+                          nationality: p.nationality || 'Türkiye'
+                        }
+                      })
+                      fetch('http://localhost:4000/api/booking/passengers_simple', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ reservationId: Number(rid), passengers: psg })
+                      })
+                        .catch(() => {})
+                        .finally(() => {
+                          const tickets = (passengers || []).map((p: any, i: number) => ({
+                            first: p.first,
+                            last: p.last,
+                            seatNumber: selectedSeatNumbers[i] || '',
+                            boardingGate: (selectedFlight as any).gate || 'C1',
+                            ticketStatus: 'Issued',
+                            passportNo: p.passportNo || null
+                          }))
+                          fetch('http://localhost:4000/api/booking/issue', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              reservationId: Number(rid),
+                              flightId: Number(selectedFlight.id),
+                              tickets
+                            })
+                          })
+                            .then(() => {
+                              try { logActivity('issue_client', 'booking payment chain', { reservationId: Number(rid), flightId: Number(selectedFlight.id), tickets }) } catch {}
+                              try {
+                                const payload = encodeURIComponent(JSON.stringify({ reservationId: Number(rid), flightId: Number(selectedFlight.id) }))
+                                document.cookie = `fs_boarding=${payload};path=/`
+                              } catch {}
+                              router.push('/boarding')
+                            })
+                            .catch(() => {
+                              try { logActivity('issue_client_error', 'booking payment chain', { reservationId: Number(rid), flightId: Number(selectedFlight.id), tickets }) } catch {}
+                              try {
+                                const payload = encodeURIComponent(JSON.stringify({ reservationId: Number(rid), flightId: Number(selectedFlight.id) }))
+                                document.cookie = `fs_boarding=${payload};path=/`
+                              } catch {}
+                              router.push('/boarding')
+                            })
+                        })
+                    })
+                    .catch(() => router.push('/boarding'))
+                } catch {
+                  router.push('/boarding')
                 }
-                fetch('http://localhost:4000/api/booking/create', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(payload)
-                })
-                  .then(() => router.push('/boarding'))
-                  .catch(() => router.push('/boarding'))
               }
               else alert('Lütfen hatalı alanları düzeltin.')
             }}

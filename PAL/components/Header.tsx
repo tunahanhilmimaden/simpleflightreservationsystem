@@ -2,10 +2,20 @@
 import Link from 'next/link'
 import { useBooking } from '../lib/bookingStore'
 import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
+import { logActivity, logActivityList } from '../lib/activity'
 
 export default function Header() {
-  const { isLoggedIn, logout } = useBooking()
+  const { isLoggedIn, logout, userId } = useBooking() as any
   const router = useRouter()
+  useEffect(() => {
+    try {
+      logActivity('page_view', typeof window !== 'undefined' ? window.location.href : '', null, userId)
+    } catch {}
+    try {
+      logActivityList(50, userId)
+    } catch {}
+  }, [])
   return (
     <div style={{ height: 300, position: 'relative', borderBottomLeftRadius: 40, borderBottomRightRadius: 40, overflow: 'hidden' }}>
       <div style={{ position: 'absolute', inset: 0, backgroundImage: 'linear-gradient(135deg,#023E8A,#0077B6)' }} />
@@ -14,7 +24,21 @@ export default function Header() {
           className="btn"
           style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)' }}
           onClick={() => {
-            router.push('/auth')
+            if (isLoggedIn) {
+              try {
+                sessionStorage.removeItem('user')
+              } catch {}
+              try {
+                document.cookie = 'fs_booking=;path=/;max-age=0'
+                document.cookie = 'fs_query=;path=/;max-age=0'
+              } catch {}
+              try { logActivity('logout', 'user logout', null, userId) } catch {}
+              logout()
+              router.push('/')
+            } else {
+              try { logActivity('navigate_auth', '/auth', null, userId) } catch {}
+              router.push('/auth')
+            }
           }}
         >
           {isLoggedIn ? 'Çıkış Yap' : 'Giriş Yap / Kayıt Ol'}

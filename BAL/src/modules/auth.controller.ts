@@ -34,7 +34,24 @@ export class AuthController {
         .input('Email', dto.email)
         .input('Password', dto.password)
         .execute('GeneralCommon.sp_User_Login')
-      return res.recordset[0]
+      const row = res.recordset[0] || {}
+      const UserID = row.UserID ?? row.userId ?? row.Id ?? row.ID ?? null
+      const out = {
+        UserID,
+        Name: row.Name ?? null,
+        Email: row.Email ?? dto.email,
+        Phone: row.Phone ?? null
+      }
+      try {
+        await pool
+          .request()
+          .input('Action', 'login')
+          .input('Description', `email=${dto.email}`)
+          .input('Payload', JSON.stringify({ in: { email: dto.email }, out }))
+          .input('UserID', UserID ?? null)
+          .execute('GeneralCommon.sp_Activity_Log')
+      } catch {}
+      return out
     } catch (e: any) {
       return { error: 'invalid_credentials' }
     }
@@ -58,7 +75,17 @@ export class AuthController {
         .input('Password', dto.password)
         .input('Phone', dto.phone)
         .execute('GeneralCommon.sp_User_Register')
-      return res.recordset[0]
+      const out = res.recordset[0]
+      try {
+        await pool
+          .request()
+          .input('Action', 'register')
+          .input('Description', `email=${dto.email}`)
+          .input('Payload', JSON.stringify({ in: { name: dto.name, email: dto.email, phone: dto.phone }, out }))
+          .input('UserID', null)
+          .execute('GeneralCommon.sp_Activity_Log')
+      } catch {}
+      return out
     } catch (e: any) {
       return { error: 'email_exists' }
     }

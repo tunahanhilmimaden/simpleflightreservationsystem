@@ -13,7 +13,7 @@ BEGIN
 END
 IF NOT EXISTS (SELECT 1 FROM [FlightReservationSystem].[SeatClasses] WHERE [ClassID] = 2)
 BEGIN
-  INSERT INTO [FlightReservationSystem].[SeatClasses] (ClassID, ClassName, PriceMultiplier) VALUES (2, N'Business', 2.00);
+  INSERT INTO [FlightReservationSystem].[SeatClasses] (ClassID, ClassName, PriceMultiplier) VALUES (2, N'Business', 1.00);
 END
 IF NOT EXISTS (SELECT 1 FROM [FlightReservationSystem].[SeatClasses] WHERE [ClassID] = 3)
 BEGIN

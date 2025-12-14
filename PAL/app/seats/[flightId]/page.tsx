@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 export default function SeatsPage() {
   const params = useParams()
   const flightId = params?.flightId as string
-  const { selectedSeat, selectedFlight, totalPrice, setSeatSelections } = useBooking()
+  const { selectedSeat, selectedFlight, totalPrice, setSeatSelections, email } = useBooking()
   const router = useRouter()
   const [capacity, setCapacity] = useState<number | null>(null)
   const [paxCount, setPaxCount] = useState<number>(1)
@@ -16,7 +16,7 @@ export default function SeatsPage() {
   const [activeIndex, setActiveIndex] = useState<number>(0)
   const [flightDetail, setFlightDetail] = useState<any | null>(null)
   const [priceMap, setPriceMap] = useState<Record<string, number>>({})
-  const [forms, setForms] = useState<Array<{ gender?: string; dob?: string; first?: string; last?: string }>>([])
+  const [forms, setForms] = useState<Array<{ gender?: string; dob?: string; first?: string; last?: string; type?: string; passportNo?: string; nationality?: string }>>([])
   useEffect(() => {
     try {
       const ck = document.cookie.split(';').map(s => s.trim())
@@ -28,7 +28,7 @@ export default function SeatsPage() {
         const total = Number((pax?.adults ?? 0) + (pax?.children ?? 0) + (pax?.infants ?? 0))
         const capped = Math.min(5, total > 0 ? total : 1)
         setPaxCount(capped)
-        setForms(Array.from({ length: capped }).map(() => ({})))
+        setForms(Array.from({ length: capped }).map(() => ({ nationality: 'Türkiye' })))
       } else {
         setPaxCount(1)
         setForms([{}])
@@ -87,10 +87,28 @@ export default function SeatsPage() {
   }, [flightId, selectedSeatIds])
   const selectedRows = seatsData.filter(s => selectedSeatIds.includes(String(s.SeatID)))
   const totalSeatSum = selectedSeatIds.reduce((sum, sid) => sum + (priceMap[sid] ?? 0), 0)
+  function ageOn(dateStr?: string) {
+    if (!dateStr) return -1
+    const dob = new Date(dateStr)
+    const ref = flightDetail ? new Date(flightDetail.DepartureTime) : new Date()
+    let age = ref.getFullYear() - dob.getFullYear()
+    const m = ref.getMonth() - dob.getMonth()
+    if (m < 0 || (m === 0 && ref.getDate() < dob.getDate())) age--
+    return age
+  }
+  function isTypeValid(type?: string, dob?: string) {
+    if (!type || !dob) return false
+    const a = ageOn(dob)
+    if (a < 0) return false
+    if (type === 'Bebek') return a >= 0 && a < 2
+    if (type === 'Çocuk') return a >= 2 && a < 12
+    if (type === 'Yetişkin') return a >= 12
+    return false
+  }
   const canConfirm =
     selectedSeatIds.length === paxCount &&
     forms.length === paxCount &&
-    forms.every(f => f.gender && f.dob && f.first && f.last)
+    forms.every(f => f.gender && f.dob && f.first && f.last && f.type && isTypeValid(f.type, f.dob))
   const toggleSeat = (seatId: string) => {
     setSelectedSeatIds(prev => {
       if (prev.includes(seatId)) {
@@ -102,7 +120,7 @@ export default function SeatsPage() {
       }
     })
   }
-  const updateForm = (idx: number, patch: Partial<{ gender: string; dob: string; first: string; last: string }>) => {
+  const updateForm = (idx: number, patch: Partial<{ gender: string; dob: string; first: string; last: string; type: string; passportNo: string; nationality: string }>) => {
     setForms(prev => {
       const next = prev.map((f, i) => (i === idx ? { ...f, ...patch } : f))
       return next
@@ -110,7 +128,11 @@ export default function SeatsPage() {
   }
   const goNext = (idx: number) => {
     const f = forms[idx]
-    const complete = f.gender && f.dob && f.first && f.last
+    const complete = f.gender && f.dob && f.first && f.last && f.type
+    if (complete && !isTypeValid(f.type, f.dob)) {
+      alert('Girmiş olduğunuz doğum tarihine göre yolcu türü uyumsuz, kontrol edin')
+      return
+    }
     if (complete && idx < forms.length - 1) setActiveIndex(idx + 1)
   }
   return (
@@ -231,12 +253,48 @@ export default function SeatsPage() {
                     <div style={{ fontSize: 11, color: '#777' }}>Soyad</div>
                     <input value={f.last || ''} onChange={e => updateForm(i, { last: e.target.value })} style={{ width: '100%', height: 36, borderRadius: 8, border: '1px solid #eee', padding: '0 8px' }} />
                   </label>
+                  <label>
+                    <div style={{ fontSize: 11, color: '#777' }}>TC/Pasaport No</div>
+                    <input value={f.passportNo || ''} onChange={e => updateForm(i, { passportNo: e.target.value })} style={{ width: '100%', height: 36, borderRadius: 8, border: '1px solid #eee', padding: '0 8px' }} />
+                  </label>
+                  <label>
+                    <div style={{ fontSize: 11, color: '#777' }}>Uyruk</div>
+                    <select value={f.nationality || 'Türkiye'} onChange={e => updateForm(i, { nationality: e.target.value })} style={{ width: '100%', height: 36, borderRadius: 8, border: '1px solid #eee' }}>
+                      <option value="Türkiye">Türkiye</option>
+                      <option value="ABD">ABD</option>
+                      <option value="İngiltere">İngiltere</option>
+                      <option value="Almanya">Almanya</option>
+                      <option value="Fransa">Fransa</option>
+                      <option value="Hollanda">Hollanda</option>
+                      <option value="İspanya">İspanya</option>
+                      <option value="İtalya">İtalya</option>
+                      <option value="Kanada">Kanada</option>
+                      <option value="Rusya">Rusya</option>
+                      <option value="Çin">Çin</option>
+                      <option value="Mısır">Mısır</option>
+                      <option value="Suriye">Suriye</option>
+                      <option value="İran">İran</option>
+                      <option value="Irak">Irak</option>
+                    </select>
+                  </label>
                 </div>
                 <div style={{ height: 10 }} />
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ fontSize: 11, color: '#777' }}>Yolcu Türü</div>
+                    <select value={f.type || ''} onChange={e => updateForm(i, { type: e.target.value })} style={{ height: 36, borderRadius: 8, border: '1px solid #eee' }}>
+                      <option value="">Seçiniz</option>
+                      <option value="Yetişkin">Yetişkin</option>
+                      <option value="Çocuk">Çocuk</option>
+                      <option value="Bebek">Bebek</option>
+                    </select>
+                  </div>
+                  {!isTypeValid(f.type, f.dob) && f.type && f.dob && (
+                    <div style={{ color: '#E53E3E', fontSize: 12 }}>Girmiş olduğunuz doğum tarihine göre yolcu türü uyumsuz, kontrol edin</div>
+                  )}
                   <button
                     onClick={() => goNext(i)}
-                    disabled={!(f.gender && f.dob && f.first && f.last)}
+                    disabled={!(f.gender && f.dob && f.first && f.last && f.type && isTypeValid(f.type, f.dob))}
                     className="btn"
                     style={{ height: 36, borderRadius: 10, background: '#1976D2', color: '#fff' }}
                   >
@@ -256,7 +314,7 @@ export default function SeatsPage() {
               background: canConfirm ? '#FF9F1C' : '#bbb',
               color: canConfirm ? '#000' : '#666'
             }}
-            onClick={() => {
+            onClick={async () => {
               const seatNumbers = selectedSeatIds.map(sid => {
                 const row = seatsData.find(x => String(x.SeatID) === sid)
                 return row ? String(row.SeatNumber) : ''
@@ -266,13 +324,17 @@ export default function SeatsPage() {
                 dob: f.dob || '',
                 first: f.first || '',
                 last: f.last || '',
-                seatNumber: seatNumbers[i] || ''
+                seatNumber: seatNumbers[i] || '',
+                type: f.type || '',
+                passportNo: f.passportNo || '',
+                nationality: f.nationality || 'Türkiye'
               }))
               setSeatSelections(seatNumbers, passengersPayload)
               try {
                 const payload = { flightId, seatNumbers, passengers: passengersPayload }
                 document.cookie = `fs_booking=${encodeURIComponent(JSON.stringify(payload))};path=/;max-age=604800`
               } catch {}
+              try { } catch {}
               router.push('/booking')
             }}
           >
