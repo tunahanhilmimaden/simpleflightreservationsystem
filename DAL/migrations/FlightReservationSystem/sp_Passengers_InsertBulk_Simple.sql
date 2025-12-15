@@ -48,16 +48,13 @@ BEGIN
   FETCH NEXT FROM cur INTO @first, @last, @dob, @passportNo, @age, @gender, @nationality;
   WHILE @@FETCH_STATUS = 0
   BEGIN
-    DECLARE @DOB DATE = TRY_CONVERT(DATE, @dob);
     DECLARE @ref DATETIME2 = COALESCE(
       (SELECT TRY_CONVERT(DATETIME2, ReservationDate) FROM FlightReservationSystem.Reservations WHERE ReservationID = @ReservationId),
       SYSUTCDATETIME()
     );
     DECLARE @computedAge INT = NULL;
-    IF @DOB IS NOT NULL
-    BEGIN
-      SET @computedAge = DATEDIFF(YEAR, @DOB, @ref) - CASE WHEN (DATEADD(YEAR, DATEDIFF(YEAR, @DOB, @ref), @DOB) > @ref) THEN 1 ELSE 0 END;
-    END
+    IF TRY_CONVERT(DATE, @dob) IS NOT NULL
+      SET @computedAge = DATEDIFF(YEAR, TRY_CONVERT(DATE, @dob), @ref) - CASE WHEN (DATEADD(YEAR, DATEDIFF(YEAR, TRY_CONVERT(DATE, @dob), @ref), TRY_CONVERT(DATE, @dob)) > @ref) THEN 1 ELSE 0 END;
     DECLARE @finalAge INT = COALESCE(@age, @computedAge);
     DECLARE @c NVARCHAR(MAX) = N'[ReservationID]';
     DECLARE @v NVARCHAR(MAX) = N'@ReservationId';

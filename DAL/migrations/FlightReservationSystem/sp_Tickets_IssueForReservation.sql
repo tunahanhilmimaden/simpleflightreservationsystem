@@ -54,24 +54,15 @@ BEGIN
   WHILE @@FETCH_STATUS = 0
   BEGIN
     DECLARE @PassengerID INT = NULL;
+    DECLARE @pSql NVARCHAR(MAX) = N'';
     IF @hasPassportNo = 1 AND @passportNo IS NOT NULL
-    BEGIN
-      SELECT TOP 1 @PassengerID = PassengerID
-      FROM FlightReservationSystem.Passengers
-      WHERE ReservationID = @ReservationId AND PassportNo = @passportNo;
-    END
-    IF @PassengerID IS NULL AND @hasFirstName = 1 AND @hasLastName = 1
-    BEGIN
-      SELECT TOP 1 @PassengerID = PassengerID
-      FROM FlightReservationSystem.Passengers
-      WHERE ReservationID = @ReservationId AND FirstName = @first AND LastName = @last;
-    END
-    IF @PassengerID IS NULL AND @hasName = 1
-    BEGIN
-      SELECT TOP 1 @PassengerID = PassengerID
-      FROM FlightReservationSystem.Passengers
-      WHERE ReservationID = @ReservationId AND Name = CONCAT(@first, N' ', @last);
-    END
+      SET @pSql = N'SELECT TOP 1 @pidOut = PassengerID FROM FlightReservationSystem.Passengers WHERE ReservationID = @ReservationId AND PassportNo = @passportNo';
+    ELSE IF @hasFirstName = 1 AND @hasLastName = 1
+      SET @pSql = N'SELECT TOP 1 @pidOut = PassengerID FROM FlightReservationSystem.Passengers WHERE ReservationID = @ReservationId AND FirstName = @first AND LastName = @last';
+    ELSE IF @hasName = 1
+      SET @pSql = N'SELECT TOP 1 @pidOut = PassengerID FROM FlightReservationSystem.Passengers WHERE ReservationID = @ReservationId AND Name = CONCAT(@first, N'' '', @last)';
+    IF LEN(@pSql) > 0
+      EXEC sp_executesql @pSql, N'@ReservationId INT, @passportNo NVARCHAR(50), @first NVARCHAR(100), @last NVARCHAR(100), @pidOut INT OUTPUT', @ReservationId=@ReservationId, @passportNo=@passportNo, @first=@first, @last=@last, @pidOut=@PassengerID OUTPUT;
     DECLARE @SeatID INT = (
       SELECT TOP 1 s.SeatID
       FROM FlightReservationSystem.Seats s
